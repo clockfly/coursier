@@ -28,10 +28,10 @@ abstract class CentralTests extends TestSuite {
   def resolve(
     deps: Set[Dependency],
     filter: Option[Dependency => Boolean] = None,
-    extraRepo: Option[Repository] = None,
+    extraRepos: Seq[Repository] = Nil,
     profiles: Option[Set[String]] = None
   ) = {
-    val repositories0 = extraRepo.toSeq ++ repositories
+    val repositories0 = extraRepos ++ repositories
 
     val fetch0 = fetch(repositories0)
 
@@ -56,7 +56,7 @@ abstract class CentralTests extends TestSuite {
   def resolutionCheck(
     module: Module,
     version: String,
-    extraRepo: Option[Repository] = None,
+    extraRepos: Seq[Repository] = Nil,
     configuration: String = "",
     profiles: Option[Set[String]] = None
   ) =
@@ -85,7 +85,7 @@ abstract class CentralTests extends TestSuite {
       def tryRead = textResource(path)
 
       val dep = Dependency(module, version, configuration = configuration)
-      val res = await(resolve(Set(dep), extraRepo = extraRepo, profiles = profiles))
+      val res = await(resolve(Set(dep), extraRepos = extraRepos, profiles = profiles))
 
       lazy val result = res
         .minDependencies
@@ -126,11 +126,11 @@ abstract class CentralTests extends TestSuite {
     version: String,
     artifactType: String,
     attributes: Attributes = Attributes(),
-    extraRepo: Option[Repository] = None
+    extraRepos: Seq[Repository] = Nil
   )(
     f: Artifact => T
   ): Future[T] =
-    withArtifacts(module, version, artifactType, attributes, extraRepo) {
+    withArtifacts(module, version, artifactType, attributes, extraRepos) {
       case Seq(artifact) =>
         f(artifact)
       case other =>
@@ -145,35 +145,35 @@ abstract class CentralTests extends TestSuite {
     version: String,
     artifactType: String,
     attributes: Attributes = Attributes(),
-    extraRepo: Option[Repository] = None,
+    extraRepos: Seq[Repository] = Nil,
     classifierOpt: Option[String] = None,
     transitive: Boolean = false
   )(
     f: Seq[Artifact] => T
   ): Future[T] = {
     val dep = Dependency(module, version, transitive = transitive, attributes = attributes)
-    withArtifacts(dep, artifactType, extraRepo, classifierOpt)(f)
+    withArtifacts(dep, artifactType, extraRepos, classifierOpt)(f)
   }
 
   def withArtifacts[T](
     dep: Dependency,
     artifactType: String,
-    extraRepo: Option[Repository],
+    extraRepos: Seq[Repository],
     classifierOpt: Option[String]
   )(
     f: Seq[Artifact] => T
   ): Future[T] = 
-    withArtifacts(Set(dep), artifactType, extraRepo, classifierOpt)(f)
+    withArtifacts(Set(dep), artifactType, extraRepos, classifierOpt)(f)
 
   def withArtifacts[T](
     deps: Set[Dependency],
     artifactType: String,
-    extraRepo: Option[Repository],
+    extraRepos: Seq[Repository],
     classifierOpt: Option[String]
   )(
     f: Seq[Artifact] => T
   ): Future[T] = async {
-    val res = await(resolve(deps, extraRepo = extraRepo))
+    val res = await(resolve(deps, extraRepos = extraRepos))
 
     assert(res.metadataErrors.isEmpty)
     assert(res.conflicts.isEmpty)
@@ -197,9 +197,9 @@ abstract class CentralTests extends TestSuite {
     artifactType: String,
     extension: String,
     attributes: Attributes = Attributes(),
-    extraRepo: Option[Repository] = None
+    extraRepos: Seq[Repository] = Nil
   ): Future[Unit] =
-    withArtifact(module, version, artifactType, attributes = attributes, extraRepo = extraRepo) { artifact =>
+    withArtifact(module, version, artifactType, attributes = attributes, extraRepos = extraRepos) { artifact =>
       assert(artifact.url.endsWith("." + extension))
     }
 
@@ -281,7 +281,7 @@ abstract class CentralTests extends TestSuite {
         mod,
         version,
         configuration = "runtime",
-        extraRepo = Some(extraRepo)
+        extraRepos = Seq(extraRepo)
       )
 
       * - ensureHasArtifactWithExtension(
@@ -289,7 +289,7 @@ abstract class CentralTests extends TestSuite {
         version,
         "jar",
         "jar",
-        extraRepo = Some(extraRepo)
+        extraRepos = Seq(extraRepo)
       )
     }
 
@@ -405,8 +405,8 @@ abstract class CentralTests extends TestSuite {
           intransitiveCompiler("optional")
         ),
         "jar",
-        None,
-        None
+        extraRepos = Nil,
+        classifierOpt = None
       ) {
         case Seq() =>
           throw new Exception("Expected one JAR")
@@ -689,7 +689,7 @@ abstract class CentralTests extends TestSuite {
       * - resolutionCheck(
         Module("org.kie", "kie-api"),
         "6.5.0.Final",
-        extraRepo = Some(MavenRepository("https://repository.jboss.org/nexus/content/repositories/public"))
+        extraRepos = Seq(MavenRepository("https://repository.jboss.org/nexus/content/repositories/public"))
       )
     }
 
